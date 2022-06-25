@@ -1,66 +1,64 @@
 import { useState, useEffect } from 'react'
-import { createClient, basicClient, searchPublications, explorePublications } from '../api'
+import { createClient, searchProfiles, recommendProfiles, getPublications } from '../api'
 import { css } from '@emotion/css'
 import { trimString, generateRandomColor } from '../utils'
 import { SearchButton, SearchInput, Placeholders } from '../components'
+import Image from 'next/image'
 import Link from 'next/link'
 
 export default function Home() {
-  const [posts, setPosts] = useState([])
+  const [profiles, setProfiles] = useState([])
   const [loadingState, setLoadingState] = useState('loading')
   const [searchString, setSearchString] = useState('')
 
   useEffect(() => {
-    fetchPosts() 
+    getRecommendedProfiles() 
   }, [])
 
-  async function fetchPosts() {
+  async function getRecommendedProfiles() {
     try {
-      const response = await basicClient.query(explorePublications).toPromise()
-      const posts = response.data.explorePublications.items.filter(post => {
-        if (post.profile) {
-          post.backgroundColor = generateRandomColor()
-          return post
-        }
-      })
-      setPosts(posts)
+      const urqlClient = await createClient()
+      const response = await urqlClient.query(recommendProfiles).toPromise()
+      const profileData = await Promise.all(response.data.recommendedProfiles.map(async profile => {
+        const pub = await urqlClient.query(getPublications, { id: profile.id, limit: 1 }).toPromise()
+        profile.publication = pub.data.publications.items[0]
+        profile.backgroundColor = generateRandomColor()
+        return profile
+      }))
+      setProfiles(profileData)
       setLoadingState('loaded')
-    } catch (error) {
-      console.log({ error })
+    } catch (err) {
+      console.log('error fetching recommended profiles: ', err)
     }
   }
 
-  async function searchForPost() {
-    setLoadingState('')
+  async function searchForProfile() {
+    if (!searchString) return
     try {
       const urqlClient = await createClient()
-      const response = await urqlClient.query(searchPublications, {
-        query: searchString, type: 'PUBLICATION'
+      const response = await urqlClient.query(searchProfiles, {
+        query: searchString, type: 'PROFILE'
       }).toPromise()
-      const postData = response.data.search.items.filter(post => {
-        if (post.profile) {
-          post.backgroundColor = generateRandomColor()
-          return post
-        }
-      })
-  
-      setPosts(postData)
-      if (!postData.length) {
-        setLoadingState('no-results')
-      }
-    } catch (error) {
-      console.log({ error })
+      const profileData = await Promise.all(response.data.search.items.map(async profile => {
+        const pub = await urqlClient.query(getPublications, { id: profile.profileId, limit: 1 }).toPromise()
+        profile.id = profile.profileId
+        profile.backgroundColor = generateRandomColor()
+        profile.publication = pub.data.publications.items[0]
+        return profile
+      }))
+
+      setProfiles(profileData)
+    } catch (err) {
+      console.log('error searching profiles...', err)
     }
   }
 
   function handleKeyDown(e) {
     if (e.key === 'Enter') {
-      searchForPost()
+      searchForProfile()
     }
   }
-
-  console.log("UI Posts: ", posts)
-
+  
   return (
     <div className={containerStyle}>
       <div className={searchContainerStyle}>
@@ -68,37 +66,37 @@ export default function Home() {
           placeholder='Search'
           onChange={e => setSearchString(e.target.value)}
           value={searchString}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleKeyDown}      
         />
         <SearchButton
-          buttonText="SEARCH POSTS"
-          onClick={searchForPost}
+          onClick={searchForProfile}
+          buttonText="SEARCH PROFILES"
         />
       </div>
       <div className={listItemContainerStyle}>
         {
-          loadingState === 'no-results' && (
-            <h2>No results....</h2>
-          )
-        }
-        {
            loadingState === 'loading' && <Placeholders number={6} />
         }
         {
-          posts.map((post, index) => (
-            <Link href={`/profile/${post.profile.id || post.profile.profileId}`} key={index}>
+          profiles.map((profile, index) => (
+            <Link href={`/profile/${profile.id}`} key={index}>
               <a>
                 <div className={listItemStyle}>
                   <div className={profileContainerStyle} >
                     {
-                      post.profile.picture && post.profile.picture.original ? (
-                      <img src={post.profile.picture.original.url} className={profileImageStyle} />
+                      profile.picture && profile.picture.original ? (
+                      <Image
+                        src={profile.picture.original.url}
+                        className={profileImageStyle}
+                        width="42px"
+                        height="42px"
+                      />
                       ) : (
                         <div
                           className={
                             css`
                             ${placeholderStyle};
-                            background-color: ${post.backgroundColor};
+                            background-color: ${profile.backgroundColor};
                             `
                           }
                         />
@@ -106,12 +104,12 @@ export default function Home() {
                     }
                     
                     <div className={profileInfoStyle}>
-                      <h3 className={nameStyle}>{post.profile.name}</h3>
-                      <p className={handleStyle}>{post.profile.handle}</p>
+                      <h3 className={nameStyle}>{profile.name}</h3>
+                      <p className={handleStyle}>{profile.handle}</p>
                     </div>
                   </div>
                   <div>
-                    <p className={latestPostStyle}>{trimString(post.metadata.content, 200)}</p>
+                    <p className={latestPostStyle}>{trimString(profile.publication?.metadata.content, 200)}</p>
                   </div>
                 </div>
               </a>
@@ -135,12 +133,13 @@ const latestPostStyle = css`
 const profileContainerStyle = css`
   display: flex;
   flex-direction: row;
+  align-items: flex-start;
 `
 
 const profileImageStyle = css`
+  border-radius: 21px;
   width: 42px;
   height: 42px;
-  border-radius: 34px;
 `
 
 const placeholderStyle = css`
@@ -177,4 +176,20 @@ const nameStyle = css`
 const handleStyle = css`
   margin: 0px 0px 5px;
   color: #b900c9;
+`
+
+const inputStyle = css`
+  outline: none;
+  border: none;
+  padding: 15px 20px;
+  font-size: 16px;
+  border-radius: 25px;
+  border: 2px solid rgba(0, 0, 0, .04);
+  transition: all .4s;
+  width: 300px;
+  background-color: #fafafa;
+  &:focus {
+    background-color: white;
+    border: 2px solid rgba(0, 0, 0, .1);
+  }
 `

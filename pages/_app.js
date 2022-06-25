@@ -63,7 +63,7 @@ function MyApp({ Component, pageProps }) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         accessToken, refreshToken, exp: accessTokenData.exp
       }))
-      
+
     } catch (err) {
       console.log('error: ', err)
     }
@@ -82,16 +82,6 @@ function MyApp({ Component, pageProps }) {
                   <img src="/icon.svg" className={iconStyle} />
                 </a>
               </Link>
-              <Link href='/'>
-                <a>
-                  <p className={linkTextStyle}>Home</p>
-                </a>
-              </Link>
-              <Link href='/profiles'>
-                <a>
-                  <p className={linkTextStyle}>Explore Profiles</p>
-                </a>
-              </Link>
             </div>
             <div className={buttonContainerStyle}>
               {
@@ -101,22 +91,26 @@ function MyApp({ Component, pageProps }) {
               }
               {
                 connected && (
-                  <button
-                    className={modalButtonStyle}
-                    onClick={() => setIsModalOpen(true)}>
-                    <img
-                      src="/create-post.svg"
-                      className={createPostStyle}
-                    />
-                  </button>
+                    <button
+                      className={modalButtonStyle}
+                      onClick={() => setIsModalOpen(true)}>
+                      <img
+                        src="/create-post.svg"
+                        className={createPostStyle}
+                      />
+                    </button>
                 )
               }
             </div>
           </div>
         </nav>
-        <div className={appLayoutStyle}>
-          <Component {...pageProps} />
-        </div>
+        {
+          connected && (
+            <div className={appLayoutStyle}>
+              <Component {...pageProps} />
+            </div>
+          )
+        }
         {
           isModalOpen && (
             <Modal
