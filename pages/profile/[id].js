@@ -12,7 +12,11 @@ import { css } from '@emotion/css'
 import { AppContext } from '../../context'
 import { getSigner, generateRandomColor } from '../../utils'
 
+import { EmbedSDK } from "@epnsproject/frontend-sdk-staging";
+import { api, utils } from "@epnsproject/frontend-sdk-staging";
+
 import ABI from '../../abi'
+import { JsonRpcBatchProvider } from '@ethersproject/providers'
 const LENS_HUB_CONTRACT_ADDRESS = "0xDb46d1Dc155634FbC732f92E853b10B288AD5a1d"
 
 export default function Profile() {
@@ -24,6 +28,29 @@ export default function Profile() {
   const context = useContext(AppContext)
   const { id } = router.query
   const { userAddress } = context
+
+  const [notifications, setNotifications] = useState([])
+
+
+  async function epns(){
+    // define the variables required to make a request
+const walletAddress = "0x8F52f8092f00D2594C020468FAd7E44AC78064CC";
+const pageNumber = 1;
+const itemsPerPage = 20;
+// define the variables required to make a request
+
+//fetch the notifications
+const fetchedNotifications = await api.fetchNotifications(walletAddress, itemsPerPage, pageNumber)
+console.log(fetchedNotifications.results)
+setNotifications(fetchedNotifications.results)
+//fetch the notifications
+
+
+//parse the notification fetched
+//const parsedResponse = utils.parseApiResponse(fetchedNotifications);
+//console.log(parsedResponse);
+
+  }
 
   useEffect(() => {
     if (id) {
@@ -149,6 +176,19 @@ export default function Profile() {
               ) : null
             }
           </div>
+          <div>
+          <button className={buttonStyle} id="sdk-trigger-id" onClick={epns}>trigger button</button>
+          </div>
+          <div>
+          <>
+      {notifications?
+      (notifications.map(( n ) => (
+        <p key={n.payload_id}>EPNS Notification: {n.payload.notification.body}</p>
+      )) ): (<p></p> )}
+    </>
+          </div>
+          <div>
+          </div>
         </div>
         <div className={rightColumnStyle}>
           <h3 className={postHeaderStyle}>Posts</h3>
@@ -173,6 +213,7 @@ export default function Profile() {
     </div>
   )
 }
+
 
 const emptyPostTextStyle = css`
   text-align: center;
